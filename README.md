@@ -1,6 +1,6 @@
 # glc
 
-GLC is a demonstration of a method of implementing dynamically-scoped variables. In the case of GLC, there is only one variable available, which is a `context.Context`.
+GLC is a demonstration of a method of implementing dynamically-scoped variables in Go. In the case of GLC, there is only one variable available, which is of type `context.Context`.
 
 For the purposes of this document, the callstack grows upwards, meaning if function `A` calls function `B`, `A` is lower on the callstack, and `B` is higher.
 
@@ -19,27 +19,29 @@ For instance:
 	x = 10
 ```
 
-In this situation, x is a variable, and it is bound to 10. We can contrast this with this next example:
+In this situation, `x` is a variable, and it is bound to `10`. We can contrast this with this next example:
 ```go
 	x := NewQueue()
 	x.add(something)
 ```
 
-In this example, x is bound to a queue, the exact value of which is not relevant to the example.
-When we call `add` on x, it does not change x`s binding. x's binding has not changed, even if the value it is bound to has been mutated.
+In this example, `x` is bound to a queue, the exact value of which is not relevant to the example.
+When we call `add` on `x`, it does not change `x`'s binding. `x` is still bound to the same queue. `x`'s binding has not changed, even if the value it is bound to has been mutated.
 
 
 ### Dynamic Variables and Mutation
 
-For dynamic variables, mutability is usually undesirable, meaning dynamic variables should usually be read-only. If a function `C` wants to change the state of a dynamic variable `X` for some function `D` which it calls, it should create a new instance of X and bind it to X, rather than modifying X itself.
+For dynamic variables, mutability is usually undesirable, meaning dynamic variables should usually be read-only. If a function `C` wants to change the state of a dynamic variable `X` for some function `D` which it calls, it should create a new value and bind it to `X`, rather than modifying `X` itself.
 
-The reason mutability is undesirable is that we want functions lower on the callstack to be able to communicate to functions that they call indirectly, higher on the callstack, but we don't want those higher functions to be able to communicate back down the callstack, which could affect the behavior of the lower functions.
+The reason mutability is undesirable is that we want functions lower on the callstack to be able to communicate to functions higher on the callstack, which they call indirectly, but we don't want those higher functions to be able to communicate back down the callstack, which could affect the behavior of the lower functions.
 
 A great imaginary use-case is directing output. If `os.Stdout` were a dynamic variable, we could have a function `A` which bound `os.Stdout` to some file, and then all of the functions which `A` called, or the functions those functions called, etc. would see `os.Stdout` bound to that file, but no other goroutines would see this, and once `A` returned, the binding would die.
 
-Other functions which may be indirectly called may re-bind `os.Stdout` themselves, but we would not want that to propagate up the callstack. This is why immutability is important.
+Other functions which may be indirectly called by `A` may re-bind `os.Stdout` themselves, but we would not want that to propagate down the callstack. This is why immutability is important.
 
-If a function wants to alter the value of a dynamic variable `X`, it should re-bind `X` rather than modifying `X`.
+If `os.Stdout` can be re-bound, but not mutated, then if `A` calls `B` and then calls `C`, any of `B`s modifications to `os.Stdout` cannot be seen by `C`, which is what we want. We want `A` to be able to tell `B` and `C` where to send their output, but not to let `B` or `C` interfere with each other.
+
+So, if a function wants to alter the value of a dynamic variable `X`, it should re-bind `X` rather than modifying `X`. For the purposes of this library, this is not an issue, since `context.Context` variables are immutable, but in general the type of dynamic variables needs to be considered, and immutable types should be preferred.
 
 ## This Repo
 
@@ -81,9 +83,9 @@ Each variable the library is asked to bind is given a unique ID, of 64 bits. Thi
 
 This encoding is done by calling `WithContext`, which calls several functions in succession. Each byte of the ID is encoded by adding a function to the callstack, before finally calling the function `f` which will have access to the dynamic variable.
 
-`f` can then call `GetContext`, which will walk back down the stack, looking for calls to these encoding functions, and associating them with byte values. Thereby it is able to determine the ID. `GetContext` then uses the ID to get a `context.Context` value from a map, and return it to `f`.
+`f` can then call `GetContext`, which will walk back down the stack, looking for calls to these encoding functions, and associating them with byte values. Thereby it is able to determine the ID. `GetContext` then uses the ID to get a `context.Context` value from a `sync.Map`, and return it to `f`.
 
-The encoding naturally allows dynamic binding since `GetContext` will only find the most recent call to `WithContext`.
+The encoding naturally allows dynamic binding since `GetContext` will only find the most recent call to `WithContext`. Subsequent calls to `WithContext` will take precedence over previous calls since `GetContext only looks for the most recent calls on the stack.
 
 ## Downsides
 
@@ -92,3 +94,11 @@ This has been implemented in a way that should be safe across Go versions. It do
 However, it's not without its downsides.
 
 The method we use to encode data onto the callstack means that we add multiple functions onto the callstack for every call to `WithContext`. These will be visible to users of this library if they experience a panic, and they will appear as useless garbage on the stack.
+
+Also, the runtime of `GetContext` is O(n) in the size of the stack. There are benchmarks in this repo which show this not to be a big issue, as the cost is relatively small, but it's still something to consider.
+
+## Notes
+
+sync.Map was rewritten to use generics, but during its implementation there weren't any performance gain found, although we were able to eliminate much of the use of unsafe pointers. As such, the main branch uses the standard library's sync.Map, wrapped in a type-safe type rather than the rewritten one.
+
+The type-safe map can still be found in commit `bd1cfe2` for anyone who is interested.

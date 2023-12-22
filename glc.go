@@ -26,7 +26,7 @@ func GetContext() context.Context {
 }
 
 var id uint64
-var idmap Map[uint64, context.Context]
+var idmap syncMap[uint64, context.Context]
 
 func nextID() uint64 {
 	return atomic.AddUint64(&id, 1)
