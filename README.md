@@ -5,7 +5,7 @@ GLC is a demonstration of a method of implementing dynamically-scoped variables 
 For the purposes of this document, the callstack grows upwards, meaning if function `A` calls function `B`, `A` is lower on the callstack, and `B` is higher.
 
 ## Dynamic variables
-While this repo does not implement generic dynamic variables, it demonstrates the concept, and implements a single dynamic variable of type `context.Context`, which is a good use-case for dynamic variables in Go.
+While this library does not implement generic dynamic variables, it demonstrates the concept, and implements a single dynamic variable of type `context.Context`, which is a good use-case for dynamic variables in Go.
 
 Dynamically-scoped variables are variables whose bindings are passed up through the call stack.
 If function `A` declares a dynamic variable `X` and then calls function `B`, which calls function `C`, `C` is able to see the binding of `X`, even though it has not been passed to `C`.
@@ -31,7 +31,7 @@ When we call `add` on `x`, it does not change `x`'s binding, rather we're callin
 
 ### Dynamic Variables and Mutation
 
-For dynamic variables, mutability is usually undesirable, meaning dynamic variables should usually be read-only. If a function `C` wants to change the state of a dynamic variable `X` for some function it wants to call, `D`, it should create a new value and bind it to `X`, rather than modifying the thing `X` is bound to. Then `D` will see the new binding, but anything else with a reference to what `X` is bound to won't see a change.
+For dynamic variables, mutability is usually undesirable, meaning dynamic variables should usually be read-only. If a function `C` wants to change the state of a dynamic variable `X` for some function it wants to call, `D`, it should create a new value and bind it to `X`, rather than mutating the thing `X` is bound to. Then `D` will see the new binding, but anything else with a reference to what `X` is bound to won't see a change.
 
 The reason mutability is undesirable is that we want functions lower on the callstack to be able to communicate to functions higher on the callstack, which they call indirectly, but we don't want those higher functions to be able to communicate back down the callstack, which could affect the behavior of the lower functions.
 
@@ -53,7 +53,7 @@ So, if a function wants to alter the value of a dynamic variable `X`, it should 
 
 This repository implements a single unnamed dynamic variable, which is of type `contex.Context`.
 
-The variable's binding is changed with the `WithContext` function, which takes a `context.Context` (`ctx`) and a `func()` (`f`) and executes `f` with the dynamic variable bound to `ctx`. 
+The variable's binding is changed with the `WithContext` function, which takes a `context.Context` (`ctx`) and a `func()` (`f`) and executes `f` with the dynamic variable bound to the value of `ctx`.
 
 The variable's bound value can be retrieved with the `GetContext` function.
 
@@ -69,7 +69,7 @@ func a() {
 	ctxa := context.Background()
 	WithContext(ctxa, b)
 	
-    // We see no modifications to the value of ctx by functions we call.
+	// We see no modifications to the value of ctx by functions we call.
 	ctx.Value("foo") == nil // true
 	
 	// ctx is nil, since we we were not called with WithContext.
