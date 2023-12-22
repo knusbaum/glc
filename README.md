@@ -11,7 +11,7 @@ Dynamically-scoped variables are variables whose bindings are passed up through 
 If function `A` declares a dynamic variable `X` and then calls function `B`, which calls function `C`, `C` is able to see the binding of `X`, even though it has not been passed to `C`.
 
 ### Bindings
-In languages that deal in first-class dynamic variables, it's common to distinguish between a name for a variable and the thing the variable refers to. A name "referring" to a value is called a 'binding'. So if a variable `x` refers to a value `y`, then `x` is bound to `y`.
+In languages that deal in first-class dynamic variables, it's common to distinguish between a name for a variable and the thing the variable refers to. A name 'referring' to a value is called a 'binding'. So if a variable `x` refers to a value `y`, then `x` is bound to `y`.
 
 For instance:
 ```go
@@ -26,14 +26,20 @@ In this situation, `x` is a variable, and it is bound to the value `10`. We can 
 ```
 
 In this example, `x` is bound to a `Queue`, the exact value of which is not relevant to the example.
-When we call `add` on `x`, it does not change `x`'s binding, rather we're calling `add` on the thing `x` is bound to, which is the `Queue`. `x` is still bound to the same `Queue`. `x`'s binding has not changed, even if the value it is bound to has been mutated.
+When we call `add` on `x`, it does not change `x`'s binding, rather we're calling `add` on the thing `x` is bound to, which is the `Queue`. `x` is still bound to the same `Queue`. `x`'s binding has not changed, even if the value `x` is bound to has been mutated.
 
 
 ### Dynamic Variables and Mutation
 
-For dynamic variables, mutability is usually undesirable, meaning dynamic variables should usually be read-only. If a function `C` wants to change the state of a dynamic variable `X` for some function it wants to call, `D`, it should create a new value and bind it to `X`, rather than modifying `X` itself. Then `D` will see the new binding, but anything else with a reference to what `X` is bound to won't see a change.
+For dynamic variables, mutability is usually undesirable, meaning dynamic variables should usually be read-only. If a function `C` wants to change the state of a dynamic variable `X` for some function it wants to call, `D`, it should create a new value and bind it to `X`, rather than modifying the thing `X` is bound to. Then `D` will see the new binding, but anything else with a reference to what `X` is bound to won't see a change.
 
 The reason mutability is undesirable is that we want functions lower on the callstack to be able to communicate to functions higher on the callstack, which they call indirectly, but we don't want those higher functions to be able to communicate back down the callstack, which could affect the behavior of the lower functions.
+
+The reasons we want this may not be obvious, but should be intuitive if we consider the general statement that from the point of a function, we want another function we call to behave how we want it to, but we don't want that to indirectly affect how we behave, or how our caller behaves.
+
+In short, we want to be able to indirectly affect our callees, but not for our callees to indirectly affect us.
+
+#### Example
 
 A great imaginary use-case is directing output. If `os.Stdout` were a dynamic variable, we could have a function `A` which bound `os.Stdout` to some file, and then all of the functions which `A` called, or the functions those functions called, etc. would see `os.Stdout` bound to that file, but no other goroutines would see this, and once `A` returned, the binding would die.
 
