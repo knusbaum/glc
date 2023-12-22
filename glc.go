@@ -6,6 +6,12 @@ import (
 	"sync/atomic"
 )
 
+// WithContext executes the function `f` with the dynamic context bound to `ctx`.
+// Calls to `GetContext` within `f` or the functions which `f` calls will return
+// `ctx`.
+//
+// The dynamic binding does not cross goroutine boundaries, so these bindings are
+// not visible to functions called with the `go` keyword.
 func WithContext(ctx context.Context, f func()) {
 	id := nextID()
 	idmap.Store(id, ctx)
@@ -13,6 +19,8 @@ func WithContext(ctx context.Context, f func()) {
 	encstart(id, f)
 }
 
+// GetContext returns the `context.Context` currently bound to the stack by
+// `WithContext`.
 func GetContext() context.Context {
 	id, ok := lastID()
 	if !ok {
