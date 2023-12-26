@@ -1,8 +1,11 @@
-# glc
+# GLC - Goroutine-Local Contexts
 
 GLC is a demonstration of a method of implementing dynamically-scoped variables in Go. In the case of GLC, there is only one variable available, which is of type `context.Context`.
 
 For the purposes of this document, the callstack grows upwards, meaning if function `A` calls function `B`, `A` is lower on the callstack, and `B` is higher.
+
+#### Disclaimer
+You should not actually use this. It's interesting as a concept and as a clever hack to achieve unusual behavior in Go, but circumventing Go's scoping rules, especially by encoding data into the callstack, is likely to raise some eyebrows and is known to have made at least one senior engineer weep.
 
 ## Dynamic variables
 While this library does not implement generic dynamic variables, it demonstrates the concept, and implements a single dynamic variable of type `context.Context`, which is a good use-case for dynamic variables in Go.
